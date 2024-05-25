@@ -1,12 +1,9 @@
-from os import path
 import csv
 import re
 from types import SimpleNamespace
 from typing import Self, Union
 
-__all__ = ["Chapter", "Section", "Requirement", "extract_data_from_asvs_csv"]
-
-asvs_headers = [
+ASVS_HEADERS = [
     "chapter_id",
     "chapter_name",
     "section_id",
@@ -20,7 +17,6 @@ asvs_headers = [
     "nist",
 ]
 
-
 class Chapter:
     def __init__(self, id: int, name: str) -> None:
         self.id = id
@@ -29,13 +25,14 @@ class Chapter:
 
     @classmethod
     def from_csv_row(self, csv_row: dict) -> Self:
-        uid: str = csv_row[asvs_headers[0]]
+        uid: str = csv_row[ASVS_HEADERS[0]]
         numeric_id = int(uid.replace("V", ""))
-        name = csv_row[asvs_headers[1]]
+        name = csv_row[ASVS_HEADERS[1]]
 
         return self(numeric_id, name)
 
-    # To do -> Implement __repr__
+    def __repr__(self) -> str:
+        return f"<ASVS Charapter {self.uid}>"
 
     def __str__(self) -> str:
         return f"OWASP ASVS {self.uid}: {self.name}"
@@ -63,13 +60,14 @@ class Section:
 
     @classmethod
     def from_csv_row(self, csv_row: dict) -> Self:
-        uid: str = csv_row[asvs_headers[2]]
+        uid: str = csv_row[ASVS_HEADERS[2]]
         numeric_id = int(uid.partition(".")[2])
-        name = csv_row[asvs_headers[1]]
+        name = csv_row[ASVS_HEADERS[1]]
 
         return self(charapter=None, id=numeric_id, name=name)
 
-    # To do -> Implement __repr__
+    def __repr__(self) -> str:
+        return f"<ASVS Charapter {self.uid}>"
 
     def __str__(self) -> str:
         return f"OWASP ASVS {self.uid}: {self.name}"
@@ -107,9 +105,9 @@ class Requirement:
 
     @classmethod
     def from_csv_row(self, csv_row: dict) -> Self:
-        uid: str = csv_row[asvs_headers[4]]
+        uid: str = csv_row[ASVS_HEADERS[4]]
         numeric_id = int(uid.rpartition(".")[2])
-        description_dirty = csv_row[asvs_headers[5]]
+        description_dirty = csv_row[ASVS_HEADERS[5]]
 
         description_clean = description_dirty.split(" ([")[0].strip()
 
@@ -123,7 +121,7 @@ class Requirement:
         levels = tuple(
             filter(
                 lambda x: x == "✓",
-                [csv_row[level_header] for level_header in asvs_headers[6:9]],
+                [csv_row[level_header] for level_header in ASVS_HEADERS[6:9]],
             )
         )
 
@@ -160,10 +158,12 @@ def extract_data_from_asvs_csv(
                 # I have to return it somewhere
                 row_charapter = Chapter.from_csv_row(requirement)
                 output.chapters.append(row_charapter)
+                covered.chapters.append(asvs_row.chapter_id)
 
             if asvs_row.section_id not in covered.sections:
                 row_section = Section.from_csv_row(requirement)
                 output.sections.append(row_section)
+                covered.sections.append(asvs_row.section_id)
 
             row_requirement = Requirement.from_csv_row(requirement)
             row_requirement._set_section(row_section)
