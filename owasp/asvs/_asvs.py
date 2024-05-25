@@ -17,6 +17,7 @@ ASVS_HEADERS = [
     "nist",
 ]
 
+
 class Chapter:
     def __init__(self, id: int, name: str) -> None:
         self.id = id
@@ -45,14 +46,13 @@ class Section:
         self._charapter = charapter
         self._uid = None
 
+    def _set_charapter(self, value: Chapter):
+        self._charapter = value
+        self._uid = self.charapter.uid + "." + str(self.id)
+
     @property
     def charapter(self):
         return self._charapter
-
-    @charapter.setter
-    def charapter(self, value: Chapter):
-        self._charapter = value
-        self._uid = self.charapter.uid + "." + str(self.id)
 
     @property
     def uid(self):
@@ -86,18 +86,15 @@ class Requirement:
         self.description = description
         self.link = link
         self.level = levels
+        self._uid = None
 
     def _set_section(self, value: Section):
-        self.section = value
+        self._section = value
+        self._uid = self._section.uid + "." + str(self.id)
 
     @property
     def section(self):
-        return self.section
-
-    @section.setter
-    def section(self, value: Section):
-        self._section = value
-        self._uid = self._section.uid + "." + str(self.id)
+        return self._section
 
     @property
     def uid(self):
@@ -119,8 +116,8 @@ class Requirement:
 
         # Good luck with this :)
         levels = tuple(
-            filter(
-                lambda x: x == "✓",
+            map(
+                lambda x: True if x == "✓" else False,
                 [csv_row[level_header] for level_header in ASVS_HEADERS[6:9]],
             )
         )
@@ -132,6 +129,12 @@ class Requirement:
             link=link,
             levels=levels,
         )
+    
+    def __repr__(self) -> str:
+        return f"<ASVS Requirment {self.uid}>"
+
+    def __str__(self) -> str:
+        return f"OWASP ASVS {self.uid}: {self.description}"
 
 
 def extract_data_from_asvs_csv(
@@ -141,8 +144,8 @@ def extract_data_from_asvs_csv(
         asvs_csv = csv.DictReader(fp)
 
         covered = SimpleNamespace(
-            chapters=list(),
-            sections=list(),
+            chapter_id=0,
+            section_id=0,
         )
 
         output = SimpleNamespace(
@@ -154,20 +157,19 @@ def extract_data_from_asvs_csv(
         for requirement in asvs_csv:
             asvs_row = SimpleNamespace(**requirement)
 
-            if asvs_row.chapter_id not in covered.chapters:
-                # I have to return it somewhere
+            if asvs_row.chapter_id != covered.chapter_id:
                 row_charapter = Chapter.from_csv_row(requirement)
                 output.chapters.append(row_charapter)
-                covered.chapters.append(asvs_row.chapter_id)
+                covered.chapter_id = asvs_row.chapter_id
 
-            if asvs_row.section_id not in covered.sections:
+            if asvs_row.section_id != covered.section_id:
                 row_section = Section.from_csv_row(requirement)
+                row_section._set_charapter(row_charapter)
                 output.sections.append(row_section)
-                covered.sections.append(asvs_row.section_id)
+                covered.section_id = asvs_row.section_id
 
             row_requirement = Requirement.from_csv_row(requirement)
             row_requirement._set_section(row_section)
-
             output.requirements.append(row_requirement)
 
     return output.chapters, output.sections, output.requirements
